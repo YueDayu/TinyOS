@@ -1,7 +1,7 @@
 #include "Timer.h"
-#include "Oscilloscope.h"
+#include "SensorNode.h"
 
-module OscilloscopeC @safe()
+module SensorNodeC @safe()
 {
   uses {
     interface Boot;
@@ -9,8 +9,11 @@ module OscilloscopeC @safe()
     interface AMSend;
     interface Receive;
     interface Timer<TMilli>;
-    interface Read<uint16_t>;
+    interface Read<uint16_t> as Tem;
+    interface Read<uint16_t> as Hum;
+    interface Read<uint16_t> as Par;
     interface Leds;
+    interface PacketAcknowledgements as PacketAck;
   }
 }
 implementation
@@ -18,17 +21,12 @@ implementation
   message_t sendBuf;
   bool sendBusy;
 
-  /* Current local state - interval, version and accumulated readings */
-  oscilloscope_t local;
+  sensorPacket_t local;
+  tempReading_t temp;
 
   uint8_t reading; /* 0 to NREADINGS */
-
-  /* When we head an Oscilloscope message, we check it's sample count. If
-     it's ahead of ours, we "jump" forwards (set our count to the received
-     count). However, we must then suppress our next count increment. This
-     is a very simple form of "time" synchronization (for an abstract
-     notion of time). */
-  bool suppressCountChange;
+  uint8_t ackCount;
+  uint8_t currentDest;
 
   // Use LEDs to report various status issues.
   void report_problem() { call Leds.led0Toggle(); }
@@ -38,6 +36,12 @@ implementation
   event void Boot.booted() {
     local.interval = DEFAULT_INTERVAL;
     local.id = TOS_NODE_ID;
+    local.count = 0;
+    local.version = 0;
+    temp.temReading = 0;
+    temp.humReading = 0;
+    temp.parReading = 0;
+    ackCount = 0;
     if (call RadioControl.start() != SUCCESS)
       report_problem();
   }
@@ -45,6 +49,16 @@ implementation
   void startTimer() {
     call Timer.startPeriodic(local.interval);
     reading = 0;
+  }
+
+  void sendPacket(sensorPacket_t *packet, uint8_t dest){
+    memcpy(call AMSend.getPayload(&sendBuf, sizeof(local)), packet, sizeof local);
+    call PacketAck.requestAck(&sendBuf);
+    if (call AMSend.send(dest, &sendBuf, sizeof local) == SUCCESS)
+      sendBusy = TRUE;
+    if (!sendBusy)
+      report_problem();
+    currentDest = dest;
   }
 
   event void RadioControl.startDone(error_t error) {
@@ -55,7 +69,7 @@ implementation
   }
 
   event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len) {
-    oscilloscope_t *omsg = payload;
+    sensorPacket_t *omsg = payload;
 
     report_received();
 
@@ -64,16 +78,23 @@ implementation
     */
     if (omsg->version > local.version)
       {
-	local.version = omsg->version;
-	local.interval = omsg->interval;
-	startTimer();
+	    local.version = omsg->version;
+	    local.interval = omsg->interval;
+	    startTimer();
       }
-    if (omsg->count > local.count)
-      {
-	local.count = omsg->count;
-	suppressCountChange = TRUE;
-      }
-
+    if (!sendBusy)
+    {
+      if (TOS_NODE_ID < omsg->id && TOS_NODE_ID != MIN_ID)
+          {
+            sendPacket(omsg, TOS_NODE_ID - 1);
+            sendBusy = TRUE;
+          }
+      if (TOS_NODE_ID > omsg->id && TOS_NODE_ID != MAX_ID)
+          {
+            sendPacket(omsg, TOS_NODE_ID + 1);
+            sendBusy = TRUE;
+          }
+    }
     return msg;
   }
 
@@ -82,45 +103,78 @@ implementation
      - read next sample
   */
   event void Timer.fired() {
-    if (reading == NREADINGS)
+  local.count++;
+  local.timestamps[reading] = call Timer.getNow();
+  local.humReadings[reading] = temp.humReading;
+  local.temReadings[reading] = temp.temReading;
+  local.parReadings[reading] = temp.parReading;
+  reading++;
+    if (reading == NREADINGS && TOS_NODE_ID != MIN_ID)
       {
-	if (!sendBusy && sizeof local <= call AMSend.maxPayloadLength())
-	  {
-	    // Don't need to check for null because we've already checked length
-	    // above
-	    memcpy(call AMSend.getPayload(&sendBuf, sizeof(local)), &local, sizeof local);
-	    if (call AMSend.send(AM_BROADCAST_ADDR, &sendBuf, sizeof local) == SUCCESS)
-	      sendBusy = TRUE;
-	  }
-	if (!sendBusy)
-	  report_problem();
+	      if (!sendBusy && sizeof local <= call AMSend.maxPayloadLength())
+	        {
+	          // Don't need to check for null because we've already checked length
+	          // above
+            sendPacket(&local, TOS_NODE_ID - 1);
+	        }
+	      reading = 0;
+      }
 
-	reading = 0;
 	/* Part 2 of cheap "time sync": increment our count if we didn't
 	   jump ahead. */
-	if (!suppressCountChange)
-	  local.count++;
-	suppressCountChange = FALSE;
-      }
-    if (call Read.read() != SUCCESS)
+    if (call Tem.read() != SUCCESS)
+      report_problem();
+    if (call Hum.read() != SUCCESS)
+      report_problem();
+    if (call Par.read() != SUCCESS)
       report_problem();
   }
 
   event void AMSend.sendDone(message_t* msg, error_t error) {
-    if (error == SUCCESS)
+    sensorPacket_t* tempPacket = msg->data;
+    if (error == SUCCESS && call PacketAck.wasAcked(msg)){
+      sendBusy = FALSE;
       report_sent();
+      ackCount = 0;
+    }
     else
+    {
       report_problem();
-
-    sendBusy = FALSE;
+      if(ackCount < MAX_RESEND)
+      {
+        sendPacket(tempPacket, currentDest);
+        ackCount++;
+      } else {
+        ackCount = 0;
+        sendBusy = FALSE;
+      }
+    }
   }
 
-  event void Read.readDone(error_t result, uint16_t data) {
+  event void Tem.readDone(error_t result, uint16_t data) {
     if (result != SUCCESS)
       {
 	data = 0xffff;
 	report_problem();
       }
-    local.readings[reading++] = data;
+    temp.temReading = data;
+  }
+
+  event void Hum.readDone(error_t result, uint16_t data) {
+    if (result != SUCCESS)
+      {
+  data = 0xffff;
+  report_problem();
+      }
+    temp.humReading = data;
+  }
+
+  event void Par.readDone(error_t result, uint16_t data) {
+    if (result != SUCCESS)
+      {
+  data = 0xffff;
+  report_problem();
+      }
+    temp.parReading = data;
   }
 }

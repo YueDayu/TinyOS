@@ -12,7 +12,7 @@ enum {
 
   MIN_ID = 0,
 
-  MAX_RESEND = 3
+  MAX_RESEND = 3,
 };
 
 typedef nx_struct sensorPacket {
