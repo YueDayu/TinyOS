@@ -96,10 +96,10 @@ public class Oscilloscope implements MessageListener
           }
           a2 = omsg.get_count();
           sum2++;
+        System.out.println(omsg.get_parReadings()[0]);
         }
         float res1 = bad1 / (float)sum1;
         float res2 = bad2 / (float)sum2;
-        System.out.println(res1 + " " + res2);
         data.update(omsg.get_id(), omsg.get_count(), omsg.get_parReadings());
 
         /* Inform the GUI that new data showed up */
