@@ -6,7 +6,13 @@ enum {
 
   DEFAULT_INTERVAL = 256,
 
-  AM_SENSORNODE = 0x93
+  AM_SENSORNODE = 0x93,
+
+  MAX_ID = 2,
+
+  MIN_ID = 0,
+
+  MAX_RESEND = 3
 };
 
 typedef nx_struct sensorPacket {
@@ -19,5 +25,11 @@ typedef nx_struct sensorPacket {
   nx_uint16_t humReadings[NREADINGS];
   nx_uint16_t parReadings[NREADINGS];
 } sensorPacket_t;
+
+typedef nx_struct tempReading {
+  nx_uint16_t temReading;
+  nx_uint16_t humReading;
+  nx_uint16_t parReading;
+} tempReading_t;
 
 #endif
