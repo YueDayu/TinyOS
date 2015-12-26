@@ -109,7 +109,7 @@ implementation
   local.temReadings[reading] = temp.temReading;
   local.parReadings[reading] = temp.parReading;
   reading++;
-    if (reading == NREADINGS && TOS_NODE_ID != MIN_ID)
+    if (reading >= NREADINGS && TOS_NODE_ID != MIN_ID)
       {
 	      if (!sendBusy && sizeof local <= call AMSend.maxPayloadLength())
 	        {
