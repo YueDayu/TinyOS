@@ -1,0 +1,3 @@
+COMPONENT=CalculateNodeAppC
+
+include $(MAKERULES)
