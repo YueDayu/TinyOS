@@ -18,8 +18,16 @@ module SensorNodeC @safe()
 }
 implementation
 {
-  message_t sendBuf;
-  bool sendBusy;
+  enum {
+    QUEUE_LEN = 20
+  };
+
+  message_t  queueBufs[QUEUE_LEN];
+  message_t  *ONE_NOK queue[QUEUE_LEN];
+  uint8_t    queueDest[QUEUE_LEN];
+  uint8_t    queueAck[QUEUE_LEN];
+  uint8_t    queryIn, queryOut;
+  bool       sendBusy, queryFull;
 
   sensorPacket_t local;
   tempReading_t temp;
@@ -34,6 +42,7 @@ implementation
   void report_received() { call Leds.led2Toggle(); }
 
   event void Boot.booted() {
+    uint8_t i;
     local.interval = DEFAULT_INTERVAL;
     local.id = TOS_NODE_ID;
     local.count = 0;
@@ -42,6 +51,16 @@ implementation
     temp.humReading = 0;
     temp.parReading = 0;
     ackCount = 0;
+
+    for (i = 0; i < QUEUE_LEN; i++) {
+      queue[i] = &queueBufs[i];
+      queueDest[i] = 0;
+      queueAck[i] = 0;
+    }
+    queryIn = queryOut = 0;
+    sendBusy = FALSE;
+    queryFull = FALSE;
+
     if (call RadioControl.start() != SUCCESS)
       report_problem();
   }
@@ -51,15 +70,33 @@ implementation
     reading = 0;
   }
 
-  void sendPacket(sensorPacket_t *packet, uint8_t dest){
-    memcpy(call AMSend.getPayload(&sendBuf, sizeof(local)), packet, sizeof local);
-    call PacketAck.requestAck(&sendBuf);
-    if (call AMSend.send(dest, &sendBuf, sizeof local) == SUCCESS)
-      sendBusy = TRUE;
-    if (!sendBusy)
+  task void SendTask() {
+    message_t* msg;
+    uint8_t    dest;
+    report_sent();
+    atomic
+      if (queryIn == queryOut && !queryFull)
+      {
+        sendBusy = FALSE;
+        return;
+      }
+
+    msg = queue[queryOut];
+    dest = queueDest[queryOut];
+
+    if (dest > MAX_ID) {
+      sendBusy = FALSE;
+      post SendTask();
+      return;
+    }
+
+    call PacketAck.requestAck(msg);
+    if (!call AMSend.send(dest, msg, sizeof local) == SUCCESS) {
       report_problem();
-    currentDest = dest;
+      post SendTask();
+    }
   }
+
 
   event void RadioControl.startDone(error_t error) {
     startTimer();
@@ -82,19 +119,30 @@ implementation
 	    local.interval = omsg->interval;
 	    startTimer();
       }
-    if (!sendBusy)
-    {
-      if (TOS_NODE_ID < omsg->id && TOS_NODE_ID != MIN_ID)
+      if (!queryFull)
+      {
+        memcpy(call AMSend.getPayload(queue[queryIn], sizeof(local)), omsg, sizeof local);
+        if (TOS_NODE_ID < omsg->id && TOS_NODE_ID != MIN_ID) {
+          queueDest[queryIn] = TOS_NODE_ID - 1;
+        } else if (TOS_NODE_ID > omsg->id && TOS_NODE_ID != MAX_ID) {
+          queueDest[queryIn] = TOS_NODE_ID + 1;
+        } else {
+          return msg;
+        }
+        queueAck[queryIn] = 0;
+        if (++queryIn >= QUEUE_LEN)
+          queryIn = 0;
+        if (queryIn == queryOut)
+          queryFull = TRUE;
+
+        if (!sendBusy)
           {
-            sendPacket(omsg, TOS_NODE_ID - 1);
+            post SendTask();
             sendBusy = TRUE;
           }
-      if (TOS_NODE_ID > omsg->id && TOS_NODE_ID != MAX_ID)
-          {
-            sendPacket(omsg, TOS_NODE_ID + 1);
-            sendBusy = TRUE;
-          }
-    }
+      } else {
+        report_problem();
+      }
     return msg;
   }
 
@@ -109,14 +157,27 @@ implementation
   local.temReadings[reading] = temp.temReading;
   local.parReadings[reading] = temp.parReading;
   reading++;
-    if (reading == NREADINGS && TOS_NODE_ID != MIN_ID)
+    if (reading >= NREADINGS && TOS_NODE_ID != MIN_ID)
       {
-	      if (!sendBusy && sizeof local <= call AMSend.maxPayloadLength())
-	        {
-	          // Don't need to check for null because we've already checked length
-	          // above
-            sendPacket(&local, TOS_NODE_ID - 1);
-	        }
+        atomic
+      if (!queryFull)
+      {
+        memcpy(call AMSend.getPayload(queue[queryIn], sizeof(local)), &local, sizeof local);
+        queueDest[queryIn] = TOS_NODE_ID - 1;
+        queueAck[queryIn] = 0;
+        if (++queryIn >= QUEUE_LEN)
+          queryIn = 0;
+        if (queryIn == queryOut)
+          queryFull = TRUE;
+
+        if (!sendBusy)
+          {
+            post SendTask();
+            sendBusy = TRUE;
+          }
+      } else {
+        report_problem();
+      }
 	      reading = 0;
       }
 
@@ -131,24 +192,21 @@ implementation
   }
 
   event void AMSend.sendDone(message_t* msg, error_t error) {
-    sensorPacket_t* tempPacket = msg->data;
-    if (error == SUCCESS && call PacketAck.wasAcked(msg)){
-      sendBusy = FALSE;
-      report_sent();
-      ackCount = 0;
+    if ((!call PacketAck.wasAcked(msg) || error != SUCCESS) && queueAck[queryOut] < MAX_RESEND) {
+      report_problem();
+      queueAck[queryOut]++;
     }
     else
-    {
-      report_problem();
-      if(ackCount < MAX_RESEND)
-      {
-        sendPacket(tempPacket, currentDest);
-        ackCount++;
-      } else {
-        ackCount = 0;
-        sendBusy = FALSE;
-      }
-    }
+      atomic
+      if (msg == queue[queryOut])
+        {
+          if (++queryOut >= QUEUE_LEN)
+            queryOut = 0;
+          if (queryFull)
+            queryFull = FALSE;
+        }
+    
+    post SendTask();
   }
 
   event void Tem.readDone(error_t result, uint16_t data) {

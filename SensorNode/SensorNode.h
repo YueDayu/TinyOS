@@ -8,6 +8,8 @@ enum {
 
   AM_SENSORNODE = 0x93,
 
+  AM_SENSORPACKET = AM_SENSORNODE,
+
   MAX_ID = 2,
 
   MIN_ID = 0,
