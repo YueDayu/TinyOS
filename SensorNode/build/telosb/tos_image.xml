@@ -1,13 +1,13 @@
 <tos_image>
   <ident>
-    <username>yuedy13</username>
-    <appname>SensorNodeAppC</appname>
-    <uidhash>1874E3F3L</uidhash>
-    <userhash>4339CA48L</userhash>
-    <platform>telosb</platform>
-    <deluge_support>no</deluge_support>
-    <timestamp>567F0A77L</timestamp>
     <hostname>DayuPC</hostname>
+    <timestamp>567FA1C6L</timestamp>
+    <appname>SensorNodeAppC</appname>
+    <deluge_support>no</deluge_support>
+    <uidhash>889B2785L</uidhash>
+    <platform>telosb</platform>
+    <userhash>4339CA48L</userhash>
+    <username>yuedy13</username>
   </ident>
   <image format="ihex">
 :104000005542200135D0085A8245501731400039B9

@@ -1,13 +1,13 @@
 <tos_image>
   <ident>
-    <hostname>DayuPC</hostname>
-    <timestamp>567EDF80L</timestamp>
+    <timestamp>567F8D57L</timestamp>
     <deluge_support>no</deluge_support>
-    <userhash>4339CA48L</userhash>
-    <uidhash>1E6A780AL</uidhash>
-    <appname>BaseStationC</appname>
-    <username>yuedy13</username>
     <platform>telosb</platform>
+    <uidhash>BC8D3102L</uidhash>
+    <hostname>DayuPC</hostname>
+    <appname>BaseStationC</appname>
+    <userhash>4339CA48L</userhash>
+    <username>yuedy13</username>
   </ident>
   <image format="ihex">
 :104000005542200135D0085A82451A1831400039EE
@@ -68,7 +68,7 @@
 :10437000FC47824CAE12824DB012824EB212824F76
 :10438000B4123E40AE120D4E3D5007000C436F4E2E
 :10439000EE4D0000CD4F00001C531E533D532C9298
-:1043A000F623C243A211C2430E18D243CB11C2431B
+:1043A000F623D243A211C2430E18D243CB11C2430B
 :1043B000AC12B012826E4F93FC234F47B0123C4AAE
 :1043C00032D23E40A8110F43021232C20343824F41
 :1043D0003201B240340038011D423A0132413D50B1

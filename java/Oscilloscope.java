@@ -61,48 +61,45 @@ public class Oscilloscope implements MessageListener
     void newNode(int nodeId) {
     window.newNode(nodeId);
     }
-    public int a1 = 0;
-    public int bad1 = 0;
-    public int sum1 = 0;
-    public int a2 = 0;
-    public int bad2 = 0;
-    public int sum2 = 0;
+    // public int a1 = 0;
+    // public int bad1 = 0;
+    // public int sum1 = 0;
+    // public int a2 = 0;
+    // public int bad2 = 0;
+    // public int sum2 = 0;
 
     public synchronized void messageReceived(int dest_addr, 
             Message msg) {
     if (msg instanceof OscilloscopeMsg) {
         OscilloscopeMsg omsg = (OscilloscopeMsg)msg;
 
-        /* Update interval and mote data */
         periodUpdate(omsg.get_version(), omsg.get_interval());
-        if (omsg.get_id() == 1) {
-          if (a1 == 0) {
-            a1 = omsg.get_count();
-          } else {
-            if (omsg.get_count() > a1 + 2) {
-              bad1++;
-            }
-          }
-          a1 = omsg.get_count();
-          sum1++;
-        }
-        if (omsg.get_id() == 2) {
-          if (a2 == 0) {
-            a2 = omsg.get_count();
-          } else {
-            if (omsg.get_count() > a2 + 2) {
-              bad2++;
-            }
-          }
-          a2 = omsg.get_count();
-          sum2++;
-        System.out.println(omsg.get_parReadings()[0]);
-        }
-        float res1 = bad1 / (float)sum1;
-        float res2 = bad2 / (float)sum2;
+        // if (omsg.get_id() == 1) {
+        //   if (a1 == 0) {
+        //     a1 = omsg.get_count();
+        //   } else {
+        //     if (omsg.get_count() > a1 + 2) {
+        //       bad1++;
+        //     }
+        //   }
+        //   a1 = omsg.get_count();
+        //   sum1++;
+        // }
+        // if (omsg.get_id() == 2) {
+        //   if (a2 == 0) {
+        //     a2 = omsg.get_count();
+        //   } else {
+        //     if (omsg.get_count() > a2 + 2) {
+        //       bad2++;
+        //     }
+        //   }
+        //   a2 = omsg.get_count();
+        //   sum2++;
+        // System.out.println(omsg.get_parReadings()[0]);
+        // }
+        // float res1 = bad1 / (float)sum1;
+        // float res2 = bad2 / (float)sum2;
         data.update(omsg.get_id(), omsg.get_count(), omsg.get_parReadings());
-
-        /* Inform the GUI that new data showed up */
         window.newData();
     }
     }

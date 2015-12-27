@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Show</title>
+	<link rel="stylesheet" type="text/css" href="/bootstrap/css/bootstrap.min.css">
+	<link rel="stylesheet" type="text/css" href="/main.css">
+    <meta charset="UTF-8">
+</head>
+<body>
+<nav class="navbar navbar-default">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="#">Show</a>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+      <div class="navbar-form navbar-left" role="search">
+        <div class="form-group">
+          <input type="text" class="form-control" placeholder="Interval" id="number" value="256">
+        </div>
+        <button id="submit" class="btn btn-default">Submit</button>
+        <button id="clear" class="btn btn-default">Clear</button>
+        <div class="btn-group" role="group">
+  <button type="button" id="id-0" class="btn btn-default">Light</button>
+  <button type="button" id="id-1" class="btn btn-default">Temperature</button>
+  <button type="button" id="id-2" class="btn btn-default">Humidity</button>
+</div>
+      </div>
+
+    </div><!-- /.navbar-collapse -->
+  </div><!-- /.container-fluid -->
+</nav>
+
+<div class="container">
+<div class="panal"></div>
+</div>
+
+</body>
+<script type="text/javascript" src="/jquery-2.1.4.min.js"></script>
+<script type="text/javascript" src="/d3/d3.min.js"></script>
+<script type="text/javascript" src="/main.js"></script>
+</html>
